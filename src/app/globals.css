@@ -1,0 +1,69 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  --bg: #0b0d12;
+  --panel: #12151c;
+  --panel-raised: #171b24;
+  --border: #232834;
+  --text: #e7e9ee;
+  --text-dim: #8b93a3;
+  --text-faint: #565f70;
+  --accent: #5b8cff;
+  --accent-dim: #2c3f6b;
+  --sms: #5b8cff;
+  --email: #7cd992;
+  --call: #f5b556;
+  --voicemail: #d98cf5;
+  --danger: #f5716b;
+  --radius: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+button {
+  font-family: inherit;
+}
+
+::selection {
+  background: var(--accent-dim);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
