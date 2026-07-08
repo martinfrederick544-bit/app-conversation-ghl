@@ -9,13 +9,19 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
+function pushSupported() {
+  return (
+    "serviceWorker" in navigator && "PushManager" in window && typeof Notification !== "undefined"
+  );
+}
+
 export async function getPushSubscriptionState(): Promise<"unsupported" | "granted" | "denied" | "default"> {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return "unsupported";
+  if (!pushSupported()) return "unsupported";
   return Notification.permission as "granted" | "denied" | "default";
 }
 
 export async function enablePushNotifications(): Promise<{ ok: boolean; error?: string }> {
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+  if (!pushSupported()) {
     return { ok: false, error: "Ce navigateur ne supporte pas les notifications push." };
   }
 
@@ -36,11 +42,17 @@ export async function enablePushNotifications(): Promise<{ ok: boolean; error?: 
     applicationServerKey: urlBase64ToUint8Array(publicKey),
   });
 
-  await fetch("/api/push/subscribe", {
+  const subscribeRes = await fetch("/api/push/subscribe", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(subscription),
   });
+
+  if (!subscribeRes.ok) {
+    const data = await subscribeRes.json().catch(() => ({}) as any);
+    await subscription.unsubscribe().catch(() => {});
+    return { ok: false, error: data.error || "Le serveur n'a pas pu enregistrer l'abonnement." };
+  }
 
   return { ok: true };
 }

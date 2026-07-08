@@ -56,7 +56,7 @@ export default function Page() {
   const unreadTotal = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
 
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
+    <div className="app-shell" data-mobile-view={selected ? "thread" : "list"}>
       <Sidebar active={filter} onChange={setFilter} unreadTotal={unreadTotal} />
       <ConversationList
         conversations={filtered}
@@ -69,6 +69,7 @@ export default function Page() {
         messages={messages}
         loading={loadingMessages}
         onMessageSent={() => selected && loadMessages(selected.id)}
+        onBack={() => setSelected(null)}
       />
     </div>
   );

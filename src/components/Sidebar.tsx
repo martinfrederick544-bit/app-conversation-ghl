@@ -20,24 +20,15 @@ export function Sidebar({
   unreadTotal: number;
 }) {
   return (
-    <aside
-      style={{
-        width: 220,
-        flexShrink: 0,
-        borderRight: "1px solid var(--border)",
-        display: "flex",
-        flexDirection: "column",
-        padding: 16,
-        gap: 16,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 4px" }}>
+    <aside className="app-sidebar">
+      <div className="sidebar-brand">
         <div
           style={{
             width: 8,
             height: 8,
             borderRadius: "50%",
             background: unreadTotal > 0 ? "var(--accent)" : "var(--text-faint)",
+            flexShrink: 0,
           }}
         />
         <span style={{ fontWeight: 700, fontSize: 15 }}>Inbox</span>
@@ -51,21 +42,16 @@ export function Sidebar({
         )}
       </div>
 
-      <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <nav className="sidebar-nav">
         {FILTERS.map((f) => (
           <button
             key={f.key}
             onClick={() => onChange(f.key)}
+            className="sidebar-filter"
             style={{
-              textAlign: "left",
-              padding: "9px 10px",
-              borderRadius: "var(--radius)",
-              border: "none",
               background: active === f.key ? "var(--panel-raised)" : "transparent",
               color: active === f.key ? "var(--text)" : "var(--text-dim)",
-              fontSize: 13,
               fontWeight: active === f.key ? 600 : 500,
-              cursor: "pointer",
             }}
           >
             {f.label}
@@ -73,7 +59,7 @@ export function Sidebar({
         ))}
       </nav>
 
-      <div style={{ marginTop: "auto" }}>
+      <div className="notif-wrap">
         <NotificationToggle />
       </div>
     </aside>

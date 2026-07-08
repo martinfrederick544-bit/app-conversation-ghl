@@ -72,22 +72,39 @@ export async function searchConversations(params: {
   }));
 }
 
+// GHL's conversation timeline mixes real messages (SMS/Email/Call/...) with
+// CRM activity log entries (opportunity/appointment/invoice/payment/contact
+// changes). Those TYPE_ACTIVITY_* entries aren't messages anyone sent — they
+// must never be rendered as chat bubbles.
+function isActivityEntry(m: any): boolean {
+  return String(m.messageType || "").toUpperCase().startsWith("TYPE_ACTIVITY");
+}
+
 export async function getMessages(conversationId: string): Promise<ConversationMessage[]> {
   const data = await ghlFetch(`/conversations/${conversationId}/messages?limit=100`);
   const messages = data.messages?.messages || data.messages || [];
 
-  return messages.map((m: any): ConversationMessage => ({
-    id: m.id,
-    conversationId,
-    channel: normalizeChannel(m.messageType || m.type),
-    direction: (m.direction || "inbound").toLowerCase() === "outbound" ? "outbound" : "inbound",
-    body: m.body || m.subject || "",
-    subject: m.subject,
-    dateAdded: m.dateAdded,
-    status: m.status,
-    callDurationSeconds: m.meta?.callDuration,
-    recordingUrl: m.attachments?.[0] || m.meta?.recordingUrl,
-  }));
+  return messages
+    .filter((m: any) => !isActivityEntry(m))
+    .map((m: any): ConversationMessage => ({
+      id: m.id,
+      conversationId,
+      channel: normalizeChannel(m.messageType || m.type),
+      direction: (m.direction || "inbound").toLowerCase() === "outbound" ? "outbound" : "inbound",
+      body: m.body || m.subject || "",
+      subject: m.subject,
+      dateAdded: m.dateAdded,
+      status: m.status,
+      callDurationSeconds: m.meta?.callDuration,
+      recordingUrl: m.attachments?.[0] || m.meta?.recordingUrl,
+    }));
+}
+
+function escapeHtml(text: string) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 export async function sendMessage(input: {
@@ -103,7 +120,14 @@ export async function sendMessage(input: {
       type,
       contactId: input.contactId,
       message: input.body,
-      ...(input.channel === "email" ? { subject: input.subject || "" } : {}),
+      ...(input.channel === "email"
+        ? {
+            subject: input.subject || "",
+            html: `<div style="white-space:pre-wrap;font-family:inherit">${escapeHtml(
+              input.body
+            ).replace(/\n/g, "<br>")}</div>`,
+          }
+        : {}),
     }),
   });
 }

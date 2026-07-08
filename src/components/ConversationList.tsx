@@ -26,14 +26,7 @@ export function ConversationList({
   loading: boolean;
 }) {
   return (
-    <div
-      style={{
-        width: 320,
-        flexShrink: 0,
-        borderRight: "1px solid var(--border)",
-        overflowY: "auto",
-      }}
-    >
+    <div className="app-list">
       {loading && (
         <div style={{ padding: 20, color: "var(--text-faint)", fontSize: 13 }}>Chargement…</div>
       )}

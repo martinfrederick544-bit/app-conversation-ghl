@@ -40,7 +40,7 @@ export function ComposeBar({
   }
 
   return (
-    <div style={{ borderTop: "1px solid var(--border)", padding: 14 }}>
+    <div className="compose-bar">
       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
         {(["sms", "email"] as const).map((ch) => (
           <button
@@ -75,7 +75,7 @@ export function ComposeBar({
             border: "1px solid var(--border)",
             background: "var(--panel)",
             color: "var(--text)",
-            fontSize: 13,
+            fontSize: 16,
           }}
         />
       )}
@@ -87,7 +87,9 @@ export function ComposeBar({
           placeholder={channel === "sms" ? "Écrire un SMS…" : "Écrire un courriel…"}
           rows={2}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            const isTouchDevice =
+              typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+            if (e.key === "Enter" && !e.shiftKey && !isTouchDevice) {
               e.preventDefault();
               handleSend();
             }
@@ -100,7 +102,7 @@ export function ComposeBar({
             border: "1px solid var(--border)",
             background: "var(--panel)",
             color: "var(--text)",
-            fontSize: 13.5,
+            fontSize: 16,
             lineHeight: 1.4,
             fontFamily: "inherit",
           }}

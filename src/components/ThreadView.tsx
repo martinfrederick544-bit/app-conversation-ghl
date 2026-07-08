@@ -48,18 +48,19 @@ export function ThreadView({
   messages,
   loading,
   onMessageSent,
+  onBack,
 }: {
   conversation: ConversationSummary | null;
   messages: ConversationMessage[];
   loading: boolean;
   onMessageSent: () => void;
+  onBack: () => void;
 }) {
   if (!conversation) {
     return (
       <div
+        className="app-thread"
         style={{
-          flex: 1,
-          display: "flex",
           alignItems: "center",
           justifyContent: "center",
           color: "var(--text-faint)",
@@ -72,11 +73,40 @@ export function ThreadView({
   }
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-      <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
-        <div style={{ fontWeight: 700, fontSize: 15 }}>{conversation.contactName}</div>
-        <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 2 }}>
-          {conversation.contactPhone || conversation.contactEmail || ""}
+    <div className="app-thread">
+      <div className="thread-header">
+        <button
+          onClick={onBack}
+          className="back-btn"
+          aria-label="Retour à la liste"
+          style={{
+            border: "none",
+            background: "transparent",
+            color: "var(--text)",
+            fontSize: 20,
+            cursor: "pointer",
+            padding: "4px 2px",
+            lineHeight: 1,
+            flexShrink: 0,
+          }}
+        >
+          ←
+        </button>
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              fontWeight: 700,
+              fontSize: 15,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {conversation.contactName}
+          </div>
+          <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 2 }}>
+            {conversation.contactPhone || conversation.contactEmail || ""}
+          </div>
         </div>
       </div>
 
