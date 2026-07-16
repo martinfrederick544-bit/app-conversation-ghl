@@ -70,10 +70,47 @@ button {
 
 /* --- App shell layout --------------------------------------------------- */
 
-.app-shell {
+.page-root {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   height: 100dvh;
+  overflow: hidden;
+}
+
+.top-search {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  padding-top: calc(10px + env(safe-area-inset-top));
+  border-bottom: 1px solid var(--border);
+}
+
+.top-search input {
+  flex: 1;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.top-search-clear {
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 13px;
+  flex-shrink: 0;
+  padding: 4px;
+}
+
+.app-shell {
+  display: flex;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -86,7 +123,6 @@ button {
   padding: 16px;
   gap: 16px;
   overflow-y: auto;
-  padding-top: calc(16px + env(safe-area-inset-top));
 }
 
 .sidebar-brand {
@@ -180,7 +216,6 @@ button {
     flex-direction: row;
     align-items: center;
     padding: 10px 12px;
-    padding-top: calc(10px + env(safe-area-inset-top));
     gap: 10px;
     border-right: none;
     border-bottom: 1px solid var(--border);

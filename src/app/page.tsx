@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { ConversationList } from "@/components/ConversationList";
 import { ThreadView } from "@/components/ThreadView";
+import { SearchBar } from "@/components/SearchBar";
 import type { ConversationMessage, ConversationSummary } from "@/lib/types";
 
 const POLL_INTERVAL_MS = 20000;
@@ -13,6 +14,7 @@ function InboxApp() {
   const searchParams = useSearchParams();
   const [pendingTarget, setPendingTarget] = useState(searchParams.get("conversation"));
 
+  const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
@@ -22,13 +24,16 @@ function InboxApp() {
 
   const loadConversations = useCallback(async () => {
     try {
-      const res = await fetch("/api/conversations");
+      const url = searchQuery
+        ? `/api/conversations?query=${encodeURIComponent(searchQuery)}`
+        : "/api/conversations";
+      const res = await fetch(url);
       const data = await res.json();
       if (data.conversations) setConversations(data.conversations);
     } finally {
       setLoadingConversations(false);
     }
-  }, []);
+  }, [searchQuery]);
 
   const loadMessages = useCallback(async (conversationId: string) => {
     setLoadingMessages(true);
@@ -42,6 +47,7 @@ function InboxApp() {
   }, []);
 
   useEffect(() => {
+    setLoadingConversations(true);
     loadConversations();
     const interval = setInterval(loadConversations, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
@@ -82,21 +88,24 @@ function InboxApp() {
   const unreadTotal = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
 
   return (
-    <div className="app-shell" data-mobile-view={selected ? "thread" : "list"}>
-      <Sidebar active={filter} onChange={setFilter} unreadTotal={unreadTotal} />
-      <ConversationList
-        conversations={filtered}
-        selectedId={selected?.id ?? null}
-        onSelect={handleSelect}
-        loading={loadingConversations}
-      />
-      <ThreadView
-        conversation={selected}
-        messages={messages}
-        loading={loadingMessages}
-        onMessageSent={() => selected && loadMessages(selected.id)}
-        onBack={() => setSelected(null)}
-      />
+    <div className="page-root">
+      <SearchBar onSearch={setSearchQuery} />
+      <div className="app-shell" data-mobile-view={selected ? "thread" : "list"}>
+        <Sidebar active={filter} onChange={setFilter} unreadTotal={unreadTotal} />
+        <ConversationList
+          conversations={filtered}
+          selectedId={selected?.id ?? null}
+          onSelect={handleSelect}
+          loading={loadingConversations}
+        />
+        <ThreadView
+          conversation={selected}
+          messages={messages}
+          loading={loadingMessages}
+          onMessageSent={() => selected && loadMessages(selected.id)}
+          onBack={() => setSelected(null)}
+        />
+      </div>
     </div>
   );
 }
