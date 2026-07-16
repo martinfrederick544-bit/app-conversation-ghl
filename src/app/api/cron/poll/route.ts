@@ -10,6 +10,21 @@ const CHANNEL_LABEL: Record<string, string> = {
   voicemail: "Message vocal",
 };
 
+const AUDIO_EXT = /\.(mp3|wav|m4a|amr|ogg|aac|3gp|3gpp)(\?|$)/i;
+
+// A "voice message" here means either a GHL call that went to voicemail,
+// or a contact sending an audio memo as a regular SMS/MMS attachment
+// (the far more common case in practice — phones send these as plain
+// text messages with no body and an audio attachment).
+function isVoiceMessage(msg: { channel: string; body: string; attachments?: string[] }) {
+  if (msg.channel === "voicemail") return true;
+  return (
+    msg.channel === "sms" &&
+    !msg.body?.trim() &&
+    Boolean(msg.attachments?.some((url) => AUDIO_EXT.test(url)))
+  );
+}
+
 // This app polls GHL itself and decides when to notify — no GHL-side
 // webhook/workflow required. It's driven by an external scheduler (e.g. a
 // Supabase pg_cron job) hitting this route every few seconds.
@@ -72,24 +87,24 @@ export async function GET(req: NextRequest) {
     }
     if (!claimed) continue;
 
-    // The conversation summary only knows "call" vs "sms" vs "email" — GHL
-    // buries the voicemail-vs-answered-call distinction in the individual
-    // message's meta, so fetch the real latest message to know for sure.
-    let channel = convo.lastMessageType || "sms";
+    // The conversation summary can't tell us whether the latest message
+    // is actually a voice message — that requires the real message body
+    // and attachments, which only the detail endpoint has.
+    let latest;
     try {
       const msgs = await getMessages(convo.id);
-      const latest = msgs[msgs.length - 1];
-      if (latest) channel = latest.channel;
+      latest = msgs[msgs.length - 1];
     } catch (err) {
       console.error("Failed to fetch latest message for notification:", err);
+      continue;
     }
 
-    // Only voicemails push a notification — other channels are still
+    // Only voice messages push a notification — other channels are still
     // "claimed" above so we don't keep re-checking the same message, we
     // just stay quiet about them.
-    if (channel !== "voicemail") continue;
+    if (!latest || !isVoiceMessage(latest)) continue;
 
-    const label = CHANNEL_LABEL[channel] || "Message";
+    const label = CHANNEL_LABEL[latest.channel] || "Message";
     try {
       await notifyAllSubscribers({
         title: `${label} de ${convo.contactName}`,
