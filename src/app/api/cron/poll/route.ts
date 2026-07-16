@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchConversations } from "@/lib/ghl";
+import { getMessages, searchConversations } from "@/lib/ghl";
 import { notifyAllSubscribers } from "@/lib/push";
 import { supabaseServer } from "@/lib/supabase";
 
@@ -72,11 +72,35 @@ export async function GET(req: NextRequest) {
     }
     if (!claimed) continue;
 
-    const label = CHANNEL_LABEL[convo.lastMessageType || "sms"] || "Message";
+    // The conversation summary only knows "call" vs "sms" vs "email" — GHL
+    // buries the voicemail-vs-answered-call distinction in the individual
+    // message's meta, so fetch the real latest message to get an accurate
+    // channel and a sensible notification body for it.
+    let channel = convo.lastMessageType || "sms";
+    let body = convo.lastMessageBody || "";
+    try {
+      const msgs = await getMessages(convo.id);
+      const latest = msgs[msgs.length - 1];
+      if (latest) {
+        channel = latest.channel;
+        body = latest.body;
+      }
+    } catch (err) {
+      console.error("Failed to fetch latest message for notification:", err);
+    }
+
+    const label = CHANNEL_LABEL[channel] || "Message";
+    const notificationBody =
+      channel === "voicemail"
+        ? "Nouveau message vocal"
+        : channel === "call"
+        ? "Nouvel appel"
+        : body || "Nouveau message";
+
     try {
       await notifyAllSubscribers({
         title: `${label} de ${convo.contactName}`,
-        body: convo.lastMessageBody || "Nouveau message",
+        body: notificationBody,
         url: `/?conversation=${convo.id}`,
         tag: convo.id,
       });
