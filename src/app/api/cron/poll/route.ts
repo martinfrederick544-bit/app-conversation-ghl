@@ -74,33 +74,26 @@ export async function GET(req: NextRequest) {
 
     // The conversation summary only knows "call" vs "sms" vs "email" — GHL
     // buries the voicemail-vs-answered-call distinction in the individual
-    // message's meta, so fetch the real latest message to get an accurate
-    // channel and a sensible notification body for it.
+    // message's meta, so fetch the real latest message to know for sure.
     let channel = convo.lastMessageType || "sms";
-    let body = convo.lastMessageBody || "";
     try {
       const msgs = await getMessages(convo.id);
       const latest = msgs[msgs.length - 1];
-      if (latest) {
-        channel = latest.channel;
-        body = latest.body;
-      }
+      if (latest) channel = latest.channel;
     } catch (err) {
       console.error("Failed to fetch latest message for notification:", err);
     }
 
-    const label = CHANNEL_LABEL[channel] || "Message";
-    const notificationBody =
-      channel === "voicemail"
-        ? "Nouveau message vocal"
-        : channel === "call"
-        ? "Nouvel appel"
-        : body || "Nouveau message";
+    // Only voicemails push a notification — other channels are still
+    // "claimed" above so we don't keep re-checking the same message, we
+    // just stay quiet about them.
+    if (channel !== "voicemail") continue;
 
+    const label = CHANNEL_LABEL[channel] || "Message";
     try {
       await notifyAllSubscribers({
         title: `${label} de ${convo.contactName}`,
-        body: notificationBody,
+        body: "Nouveau message vocal",
         url: `/?conversation=${convo.id}`,
         tag: convo.id,
       });
