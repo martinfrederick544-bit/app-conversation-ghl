@@ -33,3 +33,39 @@ create table if not exists push_subscriptions (
 -- stays enabled with no public policies.
 alter table messages enable row level security;
 alter table push_subscriptions enable row level security;
+
+-- Watermark for the self-polling notification checker (/api/cron/poll).
+-- One row per conversation, tracking the last message we already sent a
+-- push notification for.
+create table if not exists poll_state (
+  conversation_id text primary key,
+  notified_message_date text not null,
+  updated_at timestamptz not null default now()
+);
+alter table poll_state enable row level security;
+
+-- Atomic "claim" used by the poller: only the first caller to reach this
+-- for a given (conversation, message) pair gets `true` back, even if
+-- several invocations race each other — Postgres's row lock on the
+-- conflicting update serializes them.
+create or replace function claim_notification(p_conversation_id text, p_message_date text)
+returns boolean
+language plpgsql
+security definer
+as $$
+declare
+  changed boolean;
+begin
+  insert into poll_state (conversation_id, notified_message_date, updated_at)
+  values (p_conversation_id, p_message_date, now())
+  on conflict (conversation_id) do update
+    set notified_message_date = excluded.notified_message_date,
+        updated_at = now()
+    where poll_state.notified_message_date is distinct from excluded.notified_message_date
+  returning true into changed;
+
+  return coalesce(changed, false);
+end;
+$$;
+
+grant execute on function claim_notification(text, text) to service_role;
