@@ -24,6 +24,7 @@ export interface ConversationMessage {
   status?: string;
   callDurationSeconds?: number;
   recordingUrl?: string;
+  attachments?: string[];
 }
 
 export interface LoggedMessage {

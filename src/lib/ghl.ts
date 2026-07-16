@@ -111,8 +111,14 @@ export async function getMessages(conversationId: string): Promise<ConversationM
         // that header to a plain <audio src>. Not every call/voicemail entry
         // actually has a recording; the player hides itself on a 404.
         recordingUrl: isCallLike ? `/api/messages/${m.id}/recording` : undefined,
+        // Images/voice memos sent as regular SMS/MMS or email attachments
+        // (as opposed to a call recording) come through as plain URLs here.
+        attachments: !isCallLike && Array.isArray(m.attachments) ? m.attachments : undefined,
       };
-    });
+    })
+    .sort((a: ConversationMessage, b: ConversationMessage) =>
+      new Date(a.dateAdded).getTime() - new Date(b.dateAdded).getTime()
+    );
 }
 
 function escapeHtml(text: string) {
@@ -127,6 +133,8 @@ export async function sendMessage(input: {
   channel: "sms" | "email";
   body: string;
   subject?: string;
+  cc?: string[];
+  attachments?: string[];
 }) {
   const type = input.channel === "email" ? "Email" : "SMS";
   return ghlFetch(`/conversations/messages`, {
@@ -135,12 +143,16 @@ export async function sendMessage(input: {
       type,
       contactId: input.contactId,
       message: input.body,
+      ...(input.attachments && input.attachments.length > 0
+        ? { attachments: input.attachments }
+        : {}),
       ...(input.channel === "email"
         ? {
             subject: input.subject || "",
             html: `<div style="white-space:pre-wrap;font-family:inherit">${escapeHtml(
               input.body
             ).replace(/\n/g, "<br>")}</div>`,
+            ...(input.cc && input.cc.length > 0 ? { emailCc: input.cc } : {}),
           }
         : {}),
     }),

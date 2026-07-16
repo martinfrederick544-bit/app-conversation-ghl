@@ -1,10 +1,55 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ConversationMessage, ConversationSummary } from "@/lib/types";
 import { ChannelBadge } from "./ChannelBadge";
 import { ComposeBar } from "./ComposeBar";
 import { Avatar } from "./Avatar";
+
+const IMAGE_EXT = /\.(jpe?g|png|gif|webp|heic|heif)(\?|$)/i;
+const AUDIO_EXT = /\.(mp3|wav|m4a|amr|ogg|aac|3gp|3gpp)(\?|$)/i;
+
+function attachmentKind(url: string): "image" | "audio" | "file" {
+  if (IMAGE_EXT.test(url)) return "image";
+  if (AUDIO_EXT.test(url)) return "audio";
+  return "file";
+}
+
+function Attachment({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+  const kind = attachmentKind(url);
+
+  if (kind === "image" && !failed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={url}
+        alt="Pièce jointe"
+        onError={() => setFailed(true)}
+        style={{ maxWidth: "100%", borderRadius: 12, display: "block" }}
+      />
+    );
+  }
+
+  if (kind === "audio" && !failed) {
+    return (
+      <div>
+        <audio controls preload="none" onError={() => setFailed(true)} style={{ width: "100%" }}>
+          <source src={url} />
+        </audio>
+        <a href={url} target="_blank" rel="noopener noreferrer" className="attachment-link">
+          Ouvrir le fichier audio
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="attachment-link">
+      📎 Ouvrir la pièce jointe
+    </a>
+  );
+}
 
 function formatTime(dateStr: string) {
   return new Date(dateStr).toLocaleString("fr-CA", {
@@ -60,6 +105,13 @@ export function ThreadView({
   onMessageSent: () => void;
   onBack: () => void;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, conversation?.id]);
+
   if (!conversation) {
     return (
       <div
@@ -109,7 +161,7 @@ export function ThreadView({
         </div>
       </div>
 
-      <div className="thread-scroll">
+      <div className="thread-scroll" ref={scrollRef}>
         {loading && <div style={{ color: "var(--text-faint)", fontSize: 13 }}>Chargement…</div>}
 
         {!loading &&
@@ -127,12 +179,22 @@ export function ThreadView({
                   gap: 4,
                 }}
               >
-                <div className={`msg-bubble${msg.direction === "outbound" ? " msg-bubble-out" : ""}`}>
-                  {msg.subject && (
-                    <div style={{ fontWeight: 700, marginBottom: 4 }}>{msg.subject}</div>
-                  )}
-                  {msg.body}
-                </div>
+                {(msg.body || msg.subject) && (
+                  <div className={`msg-bubble${msg.direction === "outbound" ? " msg-bubble-out" : ""}`}>
+                    {msg.subject && (
+                      <div style={{ fontWeight: 700, marginBottom: 4 }}>{msg.subject}</div>
+                    )}
+                    {msg.body}
+                  </div>
+                )}
+                {msg.attachments?.map((url) => (
+                  <div
+                    key={url}
+                    className={`msg-bubble${msg.direction === "outbound" ? " msg-bubble-out" : ""}`}
+                  >
+                    <Attachment url={url} />
+                  </div>
+                ))}
                 <div
                   style={{
                     display: "flex",
