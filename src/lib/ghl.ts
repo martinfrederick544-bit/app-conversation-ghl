@@ -165,7 +165,7 @@ export async function sendVoiceMessage(input: { contactId: string; audioUrl: str
     body: JSON.stringify({
       type: "SMS",
       contactId: input.contactId,
-      message: "🎤 Message vocal",
+      message: "",
       attachments: [input.audioUrl],
     }),
   });
