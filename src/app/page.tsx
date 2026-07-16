@@ -56,6 +56,9 @@ function InboxApp() {
     if (match) {
       setSelected(match);
       loadMessages(match.id);
+      setConversations((prev) =>
+        prev.map((c) => (c.id === match.id ? { ...c, unreadCount: 0 } : c))
+      );
     }
     setPendingTarget(null);
   }, [pendingTarget, conversations, loadMessages]);
@@ -63,6 +66,12 @@ function InboxApp() {
   function handleSelect(c: ConversationSummary) {
     setSelected(c);
     loadMessages(c.id);
+    // Clear the badge immediately instead of waiting on the next poll —
+    // the actual "mark as read" call to GHL happens server-side alongside
+    // the message fetch.
+    setConversations((prev) =>
+      prev.map((item) => (item.id === c.id ? { ...item, unreadCount: 0 } : item))
+    );
   }
 
   const filtered =

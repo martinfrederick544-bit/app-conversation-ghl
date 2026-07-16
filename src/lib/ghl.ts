@@ -171,6 +171,13 @@ export async function sendVoiceMessage(input: { contactId: string; audioUrl: str
   });
 }
 
+export async function markConversationRead(conversationId: string) {
+  return ghlFetch(`/conversations/${conversationId}`, {
+    method: "PUT",
+    body: JSON.stringify({ unreadCount: 0 }),
+  });
+}
+
 export async function getContact(contactId: string) {
   const data = await ghlFetch(`/contacts/${contactId}`);
   return data.contact;
