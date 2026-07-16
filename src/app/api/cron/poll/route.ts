@@ -13,7 +13,11 @@ const CHANNEL_LABEL: Record<string, string> = {
   voicemail: "Message vocal",
 };
 
-type Watermark = { lastMessageDate?: string; unreadCount: number };
+// Keyed by the exact lastMessageDate we last sent a push for, not a
+// unreadCount delta — a delta comparison silently breaks (and re-fires
+// forever) the moment a single state write is lost or races another
+// invocation, since there is nothing pinning it back down again.
+type Watermark = { notifiedMessageDate: string };
 type WatermarkMap = Record<string, Watermark>;
 
 async function loadState(): Promise<WatermarkMap> {
@@ -29,15 +33,21 @@ async function loadState(): Promise<WatermarkMap> {
 
 async function saveState(state: WatermarkMap) {
   const supabase = supabaseServer();
-  await supabase.storage.from(STATE_BUCKET).upload(STATE_FILE, JSON.stringify(state), {
-    contentType: "application/json",
-    upsert: true,
-  });
+  const { error } = await supabase.storage
+    .from(STATE_BUCKET)
+    .upload(STATE_FILE, JSON.stringify(state), {
+      contentType: "application/json",
+      upsert: true,
+    });
+  if (error) {
+    console.error("Failed to save poll state:", error);
+    throw error;
+  }
 }
 
 // This app polls GHL itself and decides when to notify — no GHL-side
 // webhook/workflow required. It's driven by an external scheduler (e.g. a
-// Supabase pg_cron job) hitting this route roughly once a minute.
+// Supabase pg_cron job) hitting this route every few seconds.
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   if (!process.env.CRON_SECRET || searchParams.get("secret") !== process.env.CRON_SECRET) {
@@ -55,11 +65,11 @@ export async function GET(req: NextRequest) {
 
   for (const convo of conversations) {
     const prev = state[convo.id];
-    const shouldNotify = isFirstRunEver
-      ? false
-      : prev
-      ? convo.unreadCount > prev.unreadCount
-      : convo.unreadCount > 0;
+    const messageKey = convo.lastMessageDate != null ? String(convo.lastMessageDate) : undefined;
+    const alreadyNotified = prev?.notifiedMessageDate === messageKey;
+
+    const shouldNotify =
+      !isFirstRunEver && !alreadyNotified && convo.unreadCount > 0 && Boolean(messageKey);
 
     if (shouldNotify) {
       const label = CHANNEL_LABEL[convo.lastMessageType || "sms"] || "Message";
@@ -76,10 +86,17 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    state[convo.id] = {
-      lastMessageDate: convo.lastMessageDate,
-      unreadCount: convo.unreadCount,
-    };
+    // Advance the watermark whenever we've just notified, or there's
+    // nothing currently unread to catch up on. A conversation that's
+    // unread but we deliberately skipped (first run) keeps no watermark,
+    // so it still gets flagged on a later run once tracking has started.
+    if (messageKey && (shouldNotify || convo.unreadCount === 0)) {
+      state[convo.id] = { notifiedMessageDate: messageKey };
+    } else if (isFirstRunEver && messageKey) {
+      state[convo.id] = { notifiedMessageDate: messageKey };
+    } else if (prev) {
+      state[convo.id] = prev;
+    }
   }
 
   await saveState(state);
