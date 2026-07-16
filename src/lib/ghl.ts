@@ -43,6 +43,13 @@ function normalizeChannel(raw: string | undefined): MessageChannel {
   return "sms";
 }
 
+// GHL tags voicemails as a regular TYPE_CALL with meta.call.status === "voicemail"
+// rather than a distinct message type, so the substring check above misses them.
+function messageChannel(m: any): MessageChannel {
+  if ((m.meta?.call?.status || "").toLowerCase() === "voicemail") return "voicemail";
+  return normalizeChannel(m.messageType || m.type);
+}
+
 export async function searchConversations(params: {
   limit?: number;
   query?: string;
@@ -86,18 +93,26 @@ export async function getMessages(conversationId: string): Promise<ConversationM
 
   return messages
     .filter((m: any) => !isActivityEntry(m))
-    .map((m: any): ConversationMessage => ({
-      id: m.id,
-      conversationId,
-      channel: normalizeChannel(m.messageType || m.type),
-      direction: (m.direction || "inbound").toLowerCase() === "outbound" ? "outbound" : "inbound",
-      body: m.body || m.subject || "",
-      subject: m.subject,
-      dateAdded: m.dateAdded,
-      status: m.status,
-      callDurationSeconds: m.meta?.callDuration,
-      recordingUrl: m.attachments?.[0] || m.meta?.recordingUrl,
-    }));
+    .map((m: any): ConversationMessage => {
+      const channel = messageChannel(m);
+      const isCallLike = channel === "call" || channel === "voicemail";
+      return {
+        id: m.id,
+        conversationId,
+        channel,
+        direction: (m.direction || "inbound").toLowerCase() === "outbound" ? "outbound" : "inbound",
+        body: m.body || m.subject || "",
+        subject: m.subject,
+        dateAdded: m.dateAdded,
+        status: m.status,
+        callDurationSeconds: m.meta?.call?.duration ?? m.meta?.callDuration,
+        // Proxied through our own API (see /api/messages/[id]/recording) since
+        // playing it back requires our GHL API key — the browser can't attach
+        // that header to a plain <audio src>. Not every call/voicemail entry
+        // actually has a recording; the player hides itself on a 404.
+        recordingUrl: isCallLike ? `/api/messages/${m.id}/recording` : undefined,
+      };
+    });
 }
 
 function escapeHtml(text: string) {
@@ -128,6 +143,18 @@ export async function sendMessage(input: {
             ).replace(/\n/g, "<br>")}</div>`,
           }
         : {}),
+    }),
+  });
+}
+
+export async function sendVoiceMessage(input: { contactId: string; audioUrl: string }) {
+  return ghlFetch(`/conversations/messages`, {
+    method: "POST",
+    body: JSON.stringify({
+      type: "SMS",
+      contactId: input.contactId,
+      message: "🎤 Message vocal",
+      attachments: [input.audioUrl],
     }),
   });
 }

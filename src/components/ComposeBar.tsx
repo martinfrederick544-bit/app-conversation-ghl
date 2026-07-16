@@ -1,17 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { VoiceRecorder } from "./VoiceRecorder";
+
+type Channel = "sms" | "email" | "voice";
 
 export function ComposeBar({
   contactId,
   defaultChannel,
+  hasPhone,
   onSent,
 }: {
   contactId: string;
   defaultChannel: "sms" | "email";
+  hasPhone: boolean;
   onSent: () => void;
 }) {
-  const [channel, setChannel] = useState<"sms" | "email">(defaultChannel);
+  const [channel, setChannel] = useState<Channel>(defaultChannel);
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -39,25 +44,22 @@ export function ComposeBar({
     }
   }
 
+  const tabs: { key: Channel; label: string }[] = [
+    { key: "sms", label: "SMS" },
+    { key: "email", label: "Courriel" },
+    ...(hasPhone ? [{ key: "voice" as Channel, label: "Vocal" }] : []),
+  ];
+
   return (
     <div className="compose-bar">
-      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-        {(["sms", "email"] as const).map((ch) => (
+      <div className="channel-tabs">
+        {tabs.map((t) => (
           <button
-            key={ch}
-            onClick={() => setChannel(ch)}
-            style={{
-              padding: "4px 10px",
-              borderRadius: 6,
-              fontSize: 12,
-              fontWeight: 600,
-              border: `1px solid ${channel === ch ? "var(--accent)" : "var(--border)"}`,
-              background: channel === ch ? "var(--accent-dim)" : "transparent",
-              color: channel === ch ? "var(--text)" : "var(--text-dim)",
-              cursor: "pointer",
-            }}
+            key={t.key}
+            onClick={() => setChannel(t.key)}
+            className={`channel-tab${channel === t.key ? " channel-tab-active" : ""}`}
           >
-            {ch === "sms" ? "SMS" : "Courriel"}
+            {t.label}
           </button>
         ))}
       </div>
@@ -67,64 +69,45 @@ export function ComposeBar({
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           placeholder="Sujet"
-          style={{
-            width: "100%",
-            marginBottom: 8,
-            padding: "8px 10px",
-            borderRadius: "var(--radius)",
-            border: "1px solid var(--border)",
-            background: "var(--panel)",
-            color: "var(--text)",
-            fontSize: 16,
-          }}
+          className="compose-input compose-subject"
         />
       )}
 
-      <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder={channel === "sms" ? "Écrire un SMS…" : "Écrire un courriel…"}
-          rows={2}
-          onKeyDown={(e) => {
-            const isTouchDevice =
-              typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
-            if (e.key === "Enter" && !e.shiftKey && !isTouchDevice) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          style={{
-            flex: 1,
-            resize: "none",
-            padding: "10px 12px",
-            borderRadius: "var(--radius)",
-            border: "1px solid var(--border)",
-            background: "var(--panel)",
-            color: "var(--text)",
-            fontSize: 16,
-            lineHeight: 1.4,
-            fontFamily: "inherit",
-          }}
-        />
-        <button
-          onClick={handleSend}
-          disabled={sending || !message.trim()}
-          style={{
-            padding: "10px 16px",
-            borderRadius: "var(--radius)",
-            border: "none",
-            background: sending || !message.trim() ? "var(--panel-raised)" : "var(--accent)",
-            color: sending || !message.trim() ? "var(--text-faint)" : "#0b0d12",
-            fontWeight: 600,
-            fontSize: 13,
-            cursor: sending || !message.trim() ? "default" : "pointer",
-          }}
-        >
-          {sending ? "Envoi…" : "Envoyer"}
-        </button>
-      </div>
-      {error && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 6 }}>{error}</div>}
+      {channel === "voice" ? (
+        <VoiceRecorder contactId={contactId} onSent={onSent} />
+      ) : (
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder={channel === "sms" ? "Écrire un SMS…" : "Écrire un courriel…"}
+            rows={2}
+            onKeyDown={(e) => {
+              const isTouchDevice =
+                typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+              if (e.key === "Enter" && !e.shiftKey && !isTouchDevice) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            className="compose-input compose-textarea"
+          />
+          <button
+            onClick={handleSend}
+            disabled={sending || !message.trim()}
+            className="compose-send-btn"
+            aria-label="Envoyer"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M4 12l16-8-6 8 6 8-16-8z"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+        </div>
+      )}
+      {error && <div className="compose-error">{error}</div>}
     </div>
   );
 }
